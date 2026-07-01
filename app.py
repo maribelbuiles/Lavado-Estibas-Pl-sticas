@@ -13,23 +13,18 @@ st.title("📊 Dashboard Operativo - Lavado de Estibas Plásticas")
 st.caption("Conectado en tiempo real con Google Sheets. Se actualiza automáticamente.")
 
 # 2. URL de exportación directa a CSV de tu Google Sheet
-# Transformamos tu enlace agregando '/export?format=csv' junto con el ID de la pestaña (gid)
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1SpCbxB_Ih5wtIWFNZZO8JVEqfIK-i7fT1jGcuNknGzE/export?format=csv&gid=550787410"
 
-# 3. Función para cargar datos con Auto-Refresh (TTL)
-# El 'ttl=10' significa que la caché de Streamlit vencerá cada 10 segundos, 
-# obligando al tablero a descargar las nuevas respuestas que entren desde el Formulario.
+# 3. Función para cargar datos con Auto-Refresh (TTL de 10 segundos)
 @st.cache_data(ttl=10)
 def load_data(url):
-    # Forzamos la lectura del CSV directo de la nube
     data = pd.read_csv(url)
     return data
 
 try:
     df = load_data(SHEET_URL)
     
-    # 4. Limpieza y conversión de tipos de datos por seguridad
-    # Convertimos las columnas numéricas de estibas para evitar errores de graficación
+    # 4. Limpieza y conversión de tipos de datos de las columnas reales
     columnas_numericas = [
         'Cantidad de estibas plásticas revisadas',
         'Cantidad de estibas plásticas no aptas',
@@ -43,20 +38,22 @@ try:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-    # 5. Sección de Métricas / KPIs Principales
+    # 5. Sección de Métricas / KPIs Principales (CORREGIDO)
     st.subheader("📌 Resumen General de Operaciones")
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     
     total_revisadas = int(df['Cantidad de estibas plásticas revisadas'].sum())
     total_no_aptas = int(df['Cantidad de estibas plásticas no aptas'].sum())
     total_despachadas = int(df['Cantidad de estibas plásticas limpias a despachar'].sum())
-    total_registros = len(df)
+    
+    # Cálculo del porcentaje de rechazo de forma segura
+    col_pct = (total_no_aptas / total_revisadas * 100) if total_revisadas > 0 else 0
     
     kpi1.metric(label="Estibas Revisadas", value=f"{total_revisadas:,}")
     kpi2.metric(label="Estibas No Aptas (Total)", value=f"{total_no_aptas:,}", delta=f"{total_no_aptas} unidades", delta_color="inverse")
-    kpi3.metric(label="Limpias Despachadas", f"{total_despachadas:,}")
-    col_pct = (total_no_aptas / total_revisadas * 100) if total_revisadas > 0 else 0
-    kpi4.metric("Porcentaje de Rechazo", f"{col_top_val:.1f}%" if 'col_top_val' in locals() else f"{col_pct:.1f}%")
+    # AQUÍ ESTÁ LA CORRECCIÓN: Se agregó 'value=' explícitamente para evitar el SyntaxError
+    kpi3.metric(label="Limpias Despachadas", value=f"{total_despachadas:,}")
+    kpi4.metric(label="Porcentaje de Rechazo", value=f"{col_pct:.1f}%")
 
     st.markdown("---")
 
